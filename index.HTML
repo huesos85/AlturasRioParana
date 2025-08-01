@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datos Hidrométricos INA</title>
+    <!-- Tailwind CSS CDN para un estilo rápido y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Zoom Plugin CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Un color de fondo suave */
+        }
+        .container {
+            max-width: 900px;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .tendencia-crece {
+            color: #22c55e; /* Verde para 'crece' */
+        }
+        .tendencia-baja {
+            color: #ef4444; /* Rojo para 'baja' */
+        }
+        .tendencia-estable {
+            color: #f59e0b; /* Naranja para 'estable' */
+        }
+        .estado-aguas-bajas {
+            color: #f59e0b; /* Naranja para 'aguas bajas' */
+        }
+        .estado-normal {
+            color: #22c55e; /* Verde para 'normal' */
+        }
+        .estado-alerta {
+            color: #ef4444; /* Rojo para 'alerta' */
+        }
+        /* Estilos para las pestañas */
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-weight: 600;
+            color: #4b5563; /* gray-700 */
+            background-color: #e5e7eb; /* gray-200 */
+        }
+        .tab-button.active {
+            background-color: #ffffff;
+            color: #1f2937; /* gray-900 */
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .tab-content {
+            display: none;
+            padding: 1.5rem;
+            border-radius: 0 0.5rem 0.5rem 0.5rem;
+            background-color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+    <div class="container mx-auto mt-8 p-6 card">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Datos Hidrométricos de Estaciones INA</h1>
+
+        <!-- Navegación por pestañas -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-btn-detail" class="tab-button active">Información de Estación</button>
+            <button id="tab-btn-comparison" class="tab-button">Comparativa de Estaciones (Últimos 7 días)</button>
+            <button id="tab-btn-time-range-comparison" class="tab-button">Comparativa por Rango de Fechas</button>
+            <button id="tab-btn-analysis" class="tab-button">Análisis de Curvas</button> <!-- Nueva pestaña -->
+        </div>
+
+        <!-- Contenido de la pestaña de Detalle de Estación -->
+        <div id="tab-content-detail" class="tab-content active">
+            <div class="mb-4">
+                <label for="station-selector" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Estación:</label>
+                <select id="station-selector" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">Cargando estaciones...</option>
+                </select>
+            </div>
+
+            <div id="station-info" class="mb-8 p-6 bg-blue-50 rounded-lg">
+                <h2 class="text-2xl font-semibold text-blue-800 mb-4">Información de la Estación: <span id="station-name" class="text-blue-600">Selecciona una estación</span></h2>
+                <p class="text-gray-700 text-lg mb-2">Fecha: <span id="station-date" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Valor Actual: <span id="station-value" class="font-bold text-blue-700"></span> m</p>
+                <p class="text-gray-700 text-lg mb-2">Valor Precedente: <span id="station-prev-value" class="font-medium"></span> m</p>
+                <p class="text-gray-700 text-lg mb-2">Tendencia: <span id="station-tendency" class="font-semibold"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Estado: <span id="station-state" class="font-semibold"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Distrito: <span id="station-distrito" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">País: <span id="station-pais" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Tipo: <span id="station-tipo-nombre" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Propietario: <span id="station-propietario" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Río: <span id="station-rio" class="font-medium"></span></p>
+                <p class="text-gray-700 text-lg mb-2">Cero IGN: <span id="station-cero-ign" class="font-medium"></span> m</p>
+                <p class="text-gray-700 text-lg mb-2">Nivel de Alerta: <span id="nivel-alerta" class="font-medium"></span> m</p>
+                <p class="text-gray-700 text-lg mb-2">Nivel de Evacuación: <span id="nivel-evacuacion" class="font-medium"></span> m</p>
+                <p class="text-gray-700 text-lg mb-2">Nivel de Aguas Bajas: <span id="nivel-aguas-bajas" class="font-medium"></span> m</p>
+            </div>
+
+            <div class="mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4 text-center">Gráfico de Series de Tiempo</h2>
+                <div class="relative h-80">
+                    <canvas id="timeSeriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido de la pestaña de Comparativa de Estaciones (Últimos 7 días) -->
+        <div id="tab-content-comparison" class="tab-content">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4 text-center">Comparativa de Estaciones (Nivel sobre Cero IGN - Últimos 7 días)</h2>
+            <div class="mb-4">
+                <label for="comparison-station-selector" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Estaciones para Comparar:</label>
+                <select id="comparison-station-selector" multiple class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-48">
+                    <!-- Opciones se cargarán aquí -->
+                </select>
+                <p class="text-sm text-gray-600 mt-1">Mantén 'Ctrl' (o 'Cmd' en Mac) para seleccionar múltiples estaciones.</p>
+            </div>
+            <div class="mb-8">
+                <div class="relative h-96">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nueva pestaña: Comparativa por Rango de Fechas -->
+        <div id="tab-content-time-range-comparison" class="tab-content">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4 text-center">Comparativa por Rango de Fechas (Nivel sobre Cero IGN)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="start-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Inicio:</label>
+                    <input type="date" id="start-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div>
+                    <label for="end-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Fin:</label>
+                    <input type="date" id="end-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label for="time-range-station-selector" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Estaciones:</label>
+                <select id="time-range-station-selector" multiple class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-48">
+                    <!-- Opciones se cargarán aquí -->
+                </select>
+                <p class="text-sm text-gray-600 mt-1">Mantén 'Ctrl' (o 'Cmd' en Mac) para seleccionar múltiples estaciones.</p>
+            </div>
+            <button id="fetch-time-range-data-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                Generar Gráfico
+            </button>
+            <button id="reset-zoom-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full mt-2">
+                Restablecer Zoom
+            </button>
+            <div class="mb-8 mt-6">
+                <div class="relative h-96">
+                    <canvas id="timeRangeComparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Fin de la nueva pestaña -->
+
+        <!-- Nueva pestaña: Análisis de Curvas -->
+        <div id="tab-content-analysis" class="tab-content">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4 text-center">Análisis de Curvas</h2>
+
+            <!-- Sección de Regresión Lineal -->
+            <div class="mb-8 p-6 bg-blue-50 rounded-lg">
+                <h3 class="text-xl font-semibold text-blue-800 mb-4">Tendencia General (Regresión Lineal)</h3>
+                <p class="text-gray-700 mb-4">
+                    Esta sección te permite analizar la tendencia general del nivel del agua en una estación específica durante un rango de fechas.
+                    Aplicamos una **regresión lineal** para encontrar la línea que mejor se ajusta a los datos observados.
+                    Esto es útil para identificar si el nivel del agua está aumentando, disminuyendo o manteniéndose estable en promedio durante el período.
+                </p>
+                <div class="mb-4">
+                    <label for="analysis-station-selector" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Estación:</label>
+                    <select id="analysis-station-selector" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <!-- Opciones se cargarán aquí -->
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="analysis-start-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Inicio para Análisis:</label>
+                        <input type="date" id="analysis-start-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div>
+                        <label for="analysis-end-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Fin para Análisis:</label>
+                        <input type="date" id="analysis-end-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="fit-type-selector" class="block text-gray-700 text-sm font-bold mb-2">Tipo de Ajuste:</label>
+                    <select id="fit-type-selector" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="linear">Regresión Lineal</option>
+                        <!-- <option value="quadratic">Regresión Cuadrática (Próximamente)</option> -->
+                    </select>
+                </div>
+                <button id="perform-analysis-btn" class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                    Realizar Análisis de Tendencia
+                </button>
+                <button id="reset-analysis-zoom-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full mt-2">
+                    Restablecer Zoom de Tendencia
+                </button>
+                <div class="mb-8 mt-6">
+                    <div class="relative h-96">
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+                </div>
+                <div id="analysis-results" class="mt-4 p-4 bg-green-50 rounded-lg hidden">
+                    <h3 class="text-xl font-semibold text-green-800 mb-2">Resultados del Análisis de Tendencia:</h3>
+                    <p class="text-gray-700 text-lg mb-1">
+                        **Ecuación de la Línea ($y = mx + b$):** <span id="analysis-equation" class="font-medium"></span>
+                    </p>
+                    <p class="text-gray-700 text-lg mb-1">
+                        Donde:
+                        <ul class="list-disc list-inside ml-4">
+                            <li>$y$: Nivel del agua (m)</li>
+                            <li>$x$: Tiempo (representado internamente como milisegundos desde una fecha de referencia)</li>
+                            <li>$m$: Pendiente de la línea (indica la tasa de cambio del nivel del agua a lo largo del tiempo)</li>
+                            <li>$b$: Intercepto (el valor de $y$ cuando $x$ es cero)</li>
+                        </ul>
+                    </p>
+                    <p class="text-gray-700 text-lg mt-2">
+                        **Coeficiente de Determinación (R²):** <span id="analysis-r-squared" class="font-medium"></span>
+                    </p>
+                    <p class="text-gray-700 text-base mt-1">
+                        El valor de $R^2$ (entre 0 y 1) indica qué tan bien la línea de regresión se ajusta a los datos.
+                        Un $R^2$ cercano a 1 significa que la línea explica una gran parte de la variabilidad de los niveles de agua,
+                        mientras que un valor cercano a 0 indica que la línea no explica bien los datos.
+                        Para las olas de crecida, un $R^2$ bajo es esperado si la crecida y el descenso son pronunciados,
+                        ya que una línea recta no capturaría bien la forma de la onda.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Sección de Análisis de Propagación de Olas (Correlación Cruzada) -->
+            <div class="mt-8 p-6 bg-purple-50 rounded-lg">
+                <h3 class="text-xl font-semibold text-purple-800 mb-4">Análisis de Propagación de Olas (Correlación Cruzada)</h3>
+                <p class="text-gray-700 mb-4">
+                    Esta sección te permite estimar el tiempo que tarda una "ola de crecida" en viajar entre dos estaciones del río.
+                    Utiliza la **correlación cruzada** para encontrar el desfase temporal en el que las series de niveles de agua de dos estaciones son más similares.
+                    Esto es fundamental para entender la dinámica de propagación de las crecidas a lo largo del cauce.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="upstream-station-selector" class="block text-gray-700 text-sm font-bold mb-2">Estación Aguas Arriba:</label>
+                        <select id="upstream-station-selector" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                            <!-- Opciones se cargarán aquí -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="downstream-station-selector" class="block text-gray-700 text-sm font-bold mb-2">Estación Aguas Abajo:</label>
+                        <select id="downstream-station-selector" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                            <!-- Opciones se cargarán aquí -->
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="propagation-start-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Inicio:</label>
+                        <input type="date" id="propagation-start-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div>
+                        <label for="propagation-end-date" class="block text-gray-700 text-sm font-bold mb-2">Fecha de Fin:</label>
+                        <input type="date" id="propagation-end-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                </div>
+                <button id="calculate-propagation-btn" class="bg-purple-600 hover:bg-purple-800 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                    Calcular Tiempo de Propagación
+                </button>
+                <div id="propagation-results" class="mt-4 p-4 bg-purple-100 rounded-lg hidden">
+                    <h3 class="text-xl font-semibold text-purple-800 mb-2">Resultados de Propagación:</h3>
+                    <p class="text-gray-700 text-lg mb-1">
+                        Tiempo de Propagación Estimado: <span id="propagation-time-result" class="font-medium text-purple-700"></span>
+                    </p>
+                    <p class="text-gray-700 text-lg">
+                        Coeficiente de Correlación Máximo: <span id="max-correlation-result" class="font-medium text-purple-700"></span>
+                    </p>
+                    <p class="text-gray-700 text-base mt-2">
+                        Un tiempo de propagación positivo indica que la crecida llega primero a la estación aguas arriba.
+                        Un coeficiente de correlación cercano a 1 indica una fuerte similitud en las formas de las olas entre las estaciones.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <!-- Fin de la nueva pestaña de Análisis -->
+
+        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">¡Error!</strong>
+            <span class="block sm:inline" id="error-text"></span>
+        </div>
+    </div>
+
+    <script>
+        // Registrar el plugin de zoom para Chart.js
+        Chart.register(ChartZoom);
+
+        // URLs de las APIs
+        const API_URL_STATIONS = 'https://alerta.ina.gob.ar/pub/datos/estaciones&redId=10&format=json';
+        const API_URL_TIMESERIES_LAST_7_DAYS = 'https://alerta.ina.gob.ar/geoserver/public2/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=public2:ultimas_alturas_con_timeseries&maxFeatures=500&outputFormat=application/json&viewParams=redid:10;tipo:H;';
+        const API_URL_TIME_RANGE_COMPARISON = 'https://alerta.ina.gob.ar/pub/datos/datos';
+
+        // Instancias de los gráficos (ya no son necesarias como variables globales, Chart.getChart es más robusto)
+        let timeSeriesChart;
+        let comparisonChart;
+        let timeRangeComparisonChart;
+        let analysisChart;
+        let propagationChart;
+
+        let allStationsMetadata = {};
+        let allTimeSeriesData = {};
+
+        // Función para cambiar de pestaña
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById(`tab-btn-${tabId.replace('tab-content-', '')}`).classList.add('active');
+        }
+
+        // Función para parsear datos CSV
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const data = [];
+            let startIndex = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes('obs_id,timestart,timeend,valor,timeupdate')) {
+                    startIndex = i + 1;
+                    break;
+                }
+            }
+
+            for (let i = startIndex; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line === '') continue;
+
+                const parts = line.split(',');
+                if (parts.length === 5) {
+                    const timestart = parts[1];
+                    const valor = parseFloat(parts[3]);
+                    if (!isNaN(valor)) {
+                        data.push([timestart, valor]);
+                    } else {
+                        console.warn(`Valor no numérico en la línea CSV, omitiendo: ${line}`);
+                    }
+                } else {
+                    console.warn(`Línea CSV con número inesperado de columnas (${parts.length}), omitiendo: ${line}`);
+                }
+            }
+            return data;
+        }
+
+        // Función para encontrar máximos y mínimos locales en una serie de datos
+        function findLocalExtrema(data) {
+            const maxima = [];
+            const minima = [];
+
+            if (data.length < 3) {
+                return { maxima, minima };
+            }
+
+            for (let i = 1; i < data.length - 1; i++) {
+                const prevY = data[i - 1].y;
+                const currentY = data[i].y;
+                const nextY = data[i + 1].y;
+
+                if (currentY > prevY && currentY > nextY) {
+                    maxima.push({ x: data[i].x, y: data[i].y });
+                }
+                else if (currentY < prevY && currentY < nextY) {
+                    minima.push({ x: data[i].x, y: data[i].y });
+                }
+            }
+            return { maxima, minima };
+        }
+
+        // Función para realizar regresión lineal
+        function linearRegression(data) {
+            let n = data.length;
+            let sumX = 0;
+            let sumY = 0;
+            let sumXY = 0;
+            let sumXX = 0;
+
+            // Calculate sums
+            for (let i = 0; i < n; i++) {
+                let x = data[i].x; // x is timestamp
+                let y = data[i].y;
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumXX += x * x;
+            }
+
+            // Calculate slope (m) and intercept (b)
+            let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            let intercept = (sumY - slope * sumX) / n;
+
+            // Calculate R-squared
+            let ssTotal = 0;
+            let ssResidual = 0;
+            let meanY = sumY / n;
+
+            for (let i = 0; i < n; i++) {
+                let x = data[i].x;
+                let y = data[i].y;
+                let predictedY = slope * x + intercept;
+                ssTotal += Math.pow(y - meanY, 2);
+                ssResidual += Math.pow(y - predictedY, 2);
+            }
+
+            let rSquared = (ssTotal === 0) ? 1 : (1 - (ssResidual / ssTotal)); // Handle case where ssTotal is 0
+
+            return { slope, intercept, rSquared };
+        }
+
+        // Función para calcular el coeficiente de correlación de Pearson entre dos series
+        function pearsonCorrelation(x, y) {
+            const n = x.length;
+            if (n === 0 || n !== y.length) return 0;
+
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += x[i];
+                sumY += y[i];
+                sumXY += x[i] * y[i];
+                sumX2 += x[i] * x[i];
+                sumY2 += y[i] * y[i];
+            }
+
+            const numerator = n * sumXY - sumX * sumY;
+            const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+
+            if (denominator === 0) return 0; // Avoid division by zero
+            return numerator / denominator;
+        }
+
+        // Función para realizar el análisis de propagación de olas (correlación cruzada)
+        async function calculatePropagationTime() {
+            const upstreamStationSelector = document.getElementById('upstream-station-selector');
+            const downstreamStationSelector = document.getElementById('downstream-station-selector');
+            const propagationStartDateInput = document.getElementById('propagation-start-date');
+            const propagationEndDateInput = document.getElementById('propagation-end-date');
+            const propagationResultsDiv = document.getElementById('propagation-results');
+            const propagationTimeResultSpan = document.getElementById('propagation-time-result');
+            const maxCorrelationResultSpan = document.getElementById('max-correlation-result');
+
+            const upstreamSiteCode = upstreamStationSelector.value;
+            const downstreamSiteCode = downstreamStationSelector.value;
+            const startDate = propagationStartDateInput.value;
+            const endDate = propagationEndDateInput.value;
+
+            if (!upstreamSiteCode || !downstreamSiteCode || !startDate || !endDate) {
+                displayError("Por favor, selecciona ambas estaciones y un rango de fechas para el análisis de propagación.");
+                propagationResultsDiv.classList.add('hidden');
+                return;
+            }
+            if (upstreamSiteCode === downstreamSiteCode) {
+                displayError("Por favor, selecciona dos estaciones diferentes para el análisis de propagación.");
+                propagationResultsDiv.classList.add('hidden');
+                return;
+            }
+
+            const upstreamMetadata = allStationsMetadata[upstreamSiteCode];
+            const downstreamMetadata = allStationsMetadata[downstreamSiteCode];
+
+            if (!upstreamMetadata || upstreamMetadata.cero_ign === null || upstreamMetadata.cero_ign === undefined ||
+                !downstreamMetadata || downstreamMetadata.cero_ign === null || downstreamMetadata.cero_ign === undefined) {
+                displayError("Metadatos de estación incompletos (Cero IGN) para el análisis de propagación.");
+                propagationResultsDiv.classList.add('hidden');
+                return;
+            }
+
+            propagationResultsDiv.classList.add('hidden'); // Ocultar resultados anteriores
+
+            // Fetch data for both stations
+            const upstreamUrl = `${API_URL_TIME_RANGE_COMPARISON}&timeStart=${startDate}T00:00:00Z&timeEnd=${endDate}T23:59:59Z&seriesId=${upstreamSiteCode}&varId=28&format=csv`;
+            const downstreamUrl = `${API_URL_TIME_RANGE_COMPARISON}&timeStart=${startDate}T00:00:00Z&timeEnd=${endDate}T23:59:59Z&seriesId=${downstreamSiteCode}&varId=28&format=csv`;
+
+            try {
+                const [upstreamResponse, downstreamResponse] = await Promise.all([
+                    fetch(upstreamUrl),
+                    fetch(downstreamUrl)
+                ]);
+
+                if (!upstreamResponse.ok) throw new Error(`Error al cargar datos de ${upstreamMetadata.nombre}: ${upstreamResponse.statusText}`);
+                if (!downstreamResponse.ok) throw new Error(`Error al cargar datos de ${downstreamMetadata.nombre}: ${downstreamResponse.statusText}`);
+
+                const upstreamCsv = await upstreamResponse.text();
+                const downstreamCsv = await downstreamResponse.text();
+
+                const upstreamData = parseCSV(upstreamCsv).map(item => ({
+                    date: new Date(item[0]),
+                    value: parseFloat(item[1]) + upstreamMetadata.cero_ign // Normalized value
+                }));
+                const downstreamData = parseCSV(downstreamCsv).map(item => ({
+                    date: new Date(item[0]),
+                    value: parseFloat(item[1]) + downstreamMetadata.cero_ign // Normalized value
+                }));
+
+                if (upstreamData.length === 0 || downstreamData.length === 0) {
+                    displayError("No hay suficientes datos para ambas estaciones en el rango de fechas seleccionado para el análisis de propagación.");
+                    return;
+                }
+
+                // Align data by date (daily resolution)
+                const alignedData = {};
+                upstreamData.forEach(item => {
+                    const dateStr = item.date.toISOString().split('T')[0];
+                    if (!alignedData[dateStr]) alignedData[dateStr] = {};
+                    alignedData[dateStr].upstream = item.value;
+                });
+                downstreamData.forEach(item => {
+                    const dateStr = item.date.toISOString().split('T')[0];
+                    if (!alignedData[dateStr]) alignedData[dateStr] = {};
+                    alignedData[dateStr].downstream = item.value;
+                });
+
+                const commonDates = Object.keys(alignedData).filter(dateStr =>
+                    alignedData[dateStr].upstream !== undefined && alignedData[dateStr].downstream !== undefined
+                ).sort();
+
+                if (commonDates.length < 2) {
+                    displayError("No hay suficientes puntos de datos comunes para realizar el análisis de propagación.");
+                    return;
+                }
+
+                const upstreamValues = commonDates.map(dateStr => alignedData[dateStr].upstream);
+                const downstreamValues = commonDates.map(dateStr => alignedData[dateStr].downstream);
+
+                // Perform cross-correlation
+                let maxCorrelation = -Infinity;
+                let bestLagDays = 0; // Lag in days
+
+                // Define a reasonable range for lags (e.g., -10 to +10 days)
+                // A positive lag means upstream leads downstream (upstream event happens first)
+                // A negative lag means downstream leads upstream (unlikely for river flow)
+                const maxLag = 10; // Max lag in days to check
+                const minLag = -1; // Allow a small negative lag just in case of data anomalies or very short distances
+
+                for (let lag = minLag; lag <= maxLag; lag++) {
+                    const shiftedUpstream = [];
+                    const shiftedDownstream = [];
+
+                    for (let i = 0; i < commonDates.length; i++) {
+                        const upstreamIndex = i - lag;
+                        const downstreamIndex = i;
+
+                        if (upstreamIndex >= 0 && upstreamIndex < commonDates.length &&
+                            downstreamIndex >= 0 && downstreamIndex < commonDates.length) {
+                            shiftedUpstream.push(upstreamValues[upstreamIndex]);
+                            shiftedDownstream.push(downstreamValues[downreamIndex]);
+                        }
+                    }
+
+                    if (shiftedUpstream.length > 1) { // Need at least 2 points for correlation
+                        const correlation = pearsonCorrelation(shiftedUpstream, shiftedDownstream);
+                        if (correlation > maxCorrelation) {
+                            maxCorrelation = correlation;
+                            bestLagDays = lag;
+                        }
+                    }
+                }
+
+                let propagationTimeText = "";
+                if (bestLagDays > 0) {
+                    propagationTimeText = `${bestLagDays} día(s) (la crecida tarda en llegar de ${upstreamMetadata.nombre} a ${downstreamMetadata.nombre})`;
+                } else if (bestLagDays < 0) {
+                    propagationTimeText = `${Math.abs(bestLagDays)} día(s) (la crecida llega antes a ${downstreamMetadata.nombre} - ¡Revisar estaciones o flujo!)`;
+                } else {
+                    propagationTimeText = `Casi simultáneo (0 días) o datos insuficientes para determinar un desfase claro.`;
+                }
+
+                propagationTimeResultSpan.textContent = propagationTimeText;
+                maxCorrelationResultSpan.textContent = maxCorrelation.toFixed(4);
+                propagationResultsDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Error al realizar el análisis de propagación:", error);
+                displayError("No se pudo realizar el análisis de propagación. Detalles: " + error.message);
+                propagationResultsDiv.classList.add('hidden');
+            }
+        }
+
+
+        // Función para obtener y procesar los datos de ambas APIs
+        async function loadAllData() {
+            try {
+                // 1. Obtener metadatos de estaciones
+                const stationsResponse = await fetch(API_URL_STATIONS);
+                if (!stationsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${stationsResponse.status} al obtener estaciones.`);
+                }
+                const stationsData = await stationsResponse.json();
+                console.log("Datos de estaciones (API_URL_STATIONS):", stationsData);
+
+                if (stationsData && Array.isArray(stationsData.data)) {
+                    stationsData.data.forEach(station => {
+                        if (station.sitecode && station.nombre) {
+                            allStationsMetadata[station.sitecode] = station;
+                        }
+                    });
+                } else {
+                    console.warn("La estructura de datos de estaciones no es la esperada o está vacía.");
+                }
+
+                // 2. Obtener datos detallados de series de tiempo (últimos 7 días)
+                const timeseriesResponse = await fetch(API_URL_TIMESERIES_LAST_7_DAYS);
+                if (!timeseriesResponse.ok) {
+                    throw new Error(`HTTP error! status: ${timeseriesResponse.status} al obtener series de tiempo (últimos 7 días).`);
+                }
+                const timeseriesRawData = await timeseriesResponse.json();
+                console.log("Datos de series de tiempo (API_URL_TIMESERIES_LAST_7_DAYS):", timeseriesRawData);
+
+                if (timeseriesRawData && Array.isArray(timeseriesRawData.features)) {
+                    timeseriesRawData.features.forEach(feature => {
+                        const props = feature.properties;
+                        if (props && props.unid) {
+                            allTimeSeriesData[props.unid] = props;
+                        }
+                    });
+                } else {
+                    console.warn("La estructura de datos de series de tiempo (últimos 7 días) no es la esperada o está vacía.");
+                }
+
+                // 3. Poblar el selector de detalle de estación
+                const stationSelector = document.getElementById('station-selector');
+                stationSelector.innerHTML = '<option value="">-- Selecciona una estación --</option>';
+                let firstValidStationId = null;
+
+                for (const sitecode in allStationsMetadata) {
+                    if (allStationsMetadata.hasOwnProperty(sitecode) && allTimeSeriesData.hasOwnProperty(sitecode)) {
+                        const stationMetadata = allStationsMetadata[sitecode];
+                        const option = document.createElement('option');
+                        option.value = sitecode;
+                        option.textContent = stationMetadata.nombre;
+                        stationSelector.appendChild(option);
+                        if (!firstValidStationId) {
+                            firstValidStationId = sitecode;
+                        }
+                    }
+                }
+
+                if (firstValidStationId) {
+                    stationSelector.value = firstValidStationId;
+                    displayStationData(firstValidStationId);
+                } else {
+                    displayError("No se encontraron estaciones válidas para mostrar. Asegúrate de que las estaciones tengan metadatos y datos de series de tiempo disponibles.");
+                }
+
+                // 4. Poblar los selectores de comparativa (solo estaciones con cero_ign) y análisis
+                populateComparisonStationSelectors();
+
+            } catch (error) {
+                console.error("Error al cargar todos los datos:", error);
+                displayError("No se pudieron cargar los datos de las estaciones. Detalles: " + error.message);
+            }
+        }
+
+        // Función para poblar los selectores de comparativa y análisis
+        function populateComparisonStationSelectors() {
+            const comparisonStationSelector = document.getElementById('comparison-station-selector');
+            const timeRangeStationSelector = document.getElementById('time-range-station-selector');
+            const analysisStationSelector = document.getElementById('analysis-station-selector');
+            const upstreamStationSelector = document.getElementById('upstream-station-selector'); // Nuevo selector
+            const downstreamStationSelector = document.getElementById('downstream-station-selector'); // Nuevo selector
+
+            comparisonStationSelector.innerHTML = '';
+            timeRangeStationSelector.innerHTML = '';
+            analysisStationSelector.innerHTML = '<option value="">-- Selecciona una estación --</option>';
+            upstreamStationSelector.innerHTML = '<option value="">-- Selecciona estación aguas arriba --</option>'; // Opciones para nuevo selector
+            downstreamStationSelector.innerHTML = '<option value="">-- Selecciona estación aguas abajo --</option>'; // Opciones para nuevo selector
+
+
+            for (const sitecode in allStationsMetadata) {
+                const stationMetadata = allStationsMetadata[sitecode];
+                if (stationMetadata.cero_ign !== null && stationMetadata.cero_ign !== undefined) {
+                    if (allTimeSeriesData.hasOwnProperty(sitecode)) {
+                        const option = document.createElement('option');
+                        option.value = sitecode;
+                        option.textContent = stationMetadata.nombre;
+                        comparisonStationSelector.appendChild(option);
+                    }
+
+                    const optionTimeRange = document.createElement('option');
+                    optionTimeRange.value = sitecode;
+                    optionTimeRange.textContent = stationMetadata.nombre;
+                    timeRangeStationSelector.appendChild(optionTimeRange);
+
+                    const optionAnalysis = document.createElement('option');
+                    optionAnalysis.value = sitecode;
+                    optionAnalysis.textContent = stationMetadata.nombre;
+                    analysisStationSelector.appendChild(optionAnalysis);
+
+                    // Añadir a los selectores de propagación
+                    const optionUpstream = document.createElement('option');
+                    optionUpstream.value = sitecode;
+                    optionUpstream.textContent = stationMetadata.nombre;
+                    upstreamStationSelector.appendChild(optionUpstream);
+
+                    const optionDownstream = document.createElement('option');
+                    optionDownstream.value = sitecode;
+                    optionDownstream.textContent = stationMetadata.nombre;
+                    downstreamStationSelector.appendChild(optionDownstream);
+                }
+            }
+        }
+
+        // Función para mostrar los datos de la estación seleccionada en la pestaña de detalle
+        function displayStationData(sitecode) {
+            const metadata = allStationsMetadata[sitecode];
+            const timeseriesProps = allTimeSeriesData[sitecode];
+
+            if (!metadata || !timeseriesProps) {
+                displayError("Datos incompletos para la estación seleccionada.");
+                clearStationInfo();
+                return;
+            }
+
+            let parsedTimeseries = [];
+            try {
+                if (timeseriesProps.timeseries && typeof timeseriesProps.timeseries === 'string') {
+                    parsedTimeseries = JSON.parse(timeseriesProps.timeseries);
+                } else if (Array.isArray(timeseriesProps.timeseries)) {
+                    parsedTimeseries = timeseriesProps.timeseries;
+                }
+            } catch (e) {
+                console.error("Error al parsear timeseries:", e);
+                displayError("Error al procesar los datos de la serie de tiempo para esta estación.");
+            }
+
+            const processedData = {
+                nombre: metadata.nombre,
+                fecha: timeseriesProps.fecha || "No disponible",
+                valor: timeseriesProps.valor || "No disponible",
+                valor_precedente: timeseriesProps.valor_precedente || "No disponible",
+                tendencia: timeseriesProps.tendencia || "No disponible",
+                estado: timeseriesProps.estado || "No disponible",
+                distrito: metadata.distrito || "No disponible",
+                pais: metadata.pais || "No disponible",
+                tipo_nombre: metadata.tipo_nombre || "No disponible",
+                propietario: metadata.propietario || "No disponible",
+                rio: metadata.rio || "No disponible",
+                cero_ign: metadata.cero_ign !== null ? metadata.cero_ign : "No disponible",
+                nivel_de_alerta: timeseriesProps.nivel_de_alerta || "No disponible",
+                nivel_de_evacuacion: timeseriesProps.nivel_de_evacuacion || "No disponible",
+                nivel_de_aguas_bajas: timeseriesProps.nivel_de_aguas_bajas || "No disponible",
+                timeseries: parsedTimeseries
+            };
+
+            document.getElementById('station-name').textContent = processedData.nombre;
+            const dateObj = new Date(processedData.fecha);
+            document.getElementById('station-date').textContent = isNaN(dateObj) ? "No disponible" : dateObj.toLocaleString('es-AR', {
+                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            document.getElementById('station-value').textContent = processedData.valor;
+            document.getElementById('station-prev-value').textContent = processedData.valor_precedente;
+
+            const tendencySpan = document.getElementById('station-tendency');
+            tendencySpan.textContent = processedData.tendencia;
+            tendencySpan.classList.remove('tendencia-crece', 'tendencia-baja', 'tendencia-estable');
+            if (processedData.tendencia === 'crece') {
+                tendencySpan.classList.add('tendencia-crece');
+            } else if (processedData.tendencia === 'baja') {
+                tendencySpan.classList.add('tendencia-baja');
+            } else if (processedData.tendencia === 'permanece') {
+                tendencySpan.classList.add('tendencia-estable');
+            }
+
+            const stateSpan = document.getElementById('station-state');
+            stateSpan.textContent = processedData.estado;
+            stateSpan.classList.remove('estado-aguas-bajas', 'estado-normal', 'estado-alerta');
+            if (processedData.estado === 'aguas bajas') {
+                stateSpan.classList.add('estado-aguas-bajas');
+            } else if (processedData.estado === 'normal') {
+                stateSpan.classList.add('estado-normal');
+            } else if (processedData.estado === 'alerta') {
+                stateSpan.classList.add('estado-alerta');
+            }
+
+            document.getElementById('station-distrito').textContent = processedData.distrito;
+            document.getElementById('station-pais').textContent = processedData.pais;
+            document.getElementById('station-tipo-nombre').textContent = processedData.tipo_nombre;
+            document.getElementById('station-propietario').textContent = processedData.propietario;
+            document.getElementById('station-rio').textContent = processedData.rio;
+            document.getElementById('station-cero-ign').textContent = processedData.cero_ign;
+
+            document.getElementById('nivel-alerta').textContent = processedData.nivel_de_alerta;
+            document.getElementById('nivel-evacuacion').textContent = processedData.nivel_de_evacuacion;
+            document.getElementById('nivel-aguas-bajas').textContent = processedData.nivel_de_aguas_bajas; 
+
+            if (processedData.timeseries && Array.isArray(processedData.timeseries) && processedData.timeseries.length > 0) {
+                renderSingleStationChart(processedData.timeseries, processedData.nombre);
+            } else {
+                console.warn("No se encontraron datos de series de tiempo válidos para graficar en la pestaña de detalle.");
+                const canvas = document.getElementById('timeSeriesChart');
+                const existingChart = Chart.getChart(canvas);
+                if (existingChart) { 
+                    existingChart.destroy(); 
+                }
+            }
+        }
+
+        function renderSingleStationChart(timeSeries, stationName) {
+            const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+            const existingChart = Chart.getChart(ctx.canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            const chartDataPoints = timeSeries.map(item => ({
+                x: new Date(item[0]).toLocaleDateString('es-AR'),
+                y: parseFloat(item[1])
+            }));
+            const labels = chartDataPoints.map(point => point.x);
+            const dataValues = chartDataPoints.map(point => point.y);
+
+            const { maxima, minima } = findLocalExtrema(chartDataPoints);
+            
+            timeSeriesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Nivel del Agua (m)',
+                            data: dataValues,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            tension: 0.3,
+                            fill: true,
+                            pointBackgroundColor: '#3b82f6',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#3b82f6',
+                            hitRadius: 10,
+                        },
+                        {
+                            label: 'Máximos Locales',
+                            data: maxima,
+                            type: 'scatter',
+                            backgroundColor: 'red',
+                            borderColor: 'red',
+                            pointRadius: 7,
+                            hitRadius: 10,
+                            pointStyle: 'triangle',
+                            showLine: false,
+                            tooltipHidden: false,
+                            xAxisID: 'x',
+                            yAxisID: 'y',
+                            stationName: stationName
+                        },
+                        {
+                            label: 'Mínimos Locales',
+                            data: minima,
+                            type: 'scatter',
+                            backgroundColor: 'green',
+                            borderColor: 'green',
+                            pointRadius: 7,
+                            hitRadius: 10,
+                            pointStyle: 'rectRot',
+                            showLine: false,
+                            tooltipHidden: false,
+                            xAxisID: 'x',
+                            yAxisID: 'y',
+                            stationName: stationName
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                filter: function(item, chart) {
+                                    return item.text !== 'Máximos Locales' && item.text !== 'Mínimos Locales';
+                                },
+                                font: {
+                                    size: 14,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let value = context.raw;
+                                    if (typeof context.raw === 'object' && context.raw !== null && 'y' in context.raw) {
+                                        value = context.raw.y;
+                                    }
+                                    if (context.dataset.stationName) {
+                                        const type = context.dataset.label.includes('Máximos') ? 'Máximo' : 'Mínimo';
+                                        return `${type} ${context.dataset.stationName}: ${value.toFixed(2)} m`;
+                                    } else {
+                                        return `${context.dataset.label}: ${value.toFixed(2)} m`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fecha',
+                                font: {
+                                    size: 16,
+                                    family: 'Inter'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Nivel (m)',
+                                font: {
+                                    size: 16,
+                                    family: 'Inter'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderComparisonChart(chartDatasets, allLabels) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const existingChart = Chart.getChart(ctx.canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            comparisonChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allLabels, 
+                    datasets: chartDatasets.map((dataset, index) => {
+                        const colorHue = (index * 60) % 360; 
+                        const borderColor = `hsl(${colorHue}, 70%, 50%)`;
+                        const backgroundColor = `hsla(${colorHue}, 70%, 50%, 0.2)`;
+                        return {
+                            label: dataset.label,
+                            data: dataset.data,
+                            borderColor: borderColor, 
+                            backgroundColor: backgroundColor,
+                            tension: 0.3,
+                            fill: false, 
+                            pointBackgroundColor: borderColor,
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: borderColor,
+                            hitRadius: 10,
+                        };
+                    })
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw.y.toFixed(2)} m (sobre Cero IGN)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fecha',
+                                font: {
+                                    size: 16,
+                                    family: 'Inter'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Nivel (m) sobre Cero IGN', 
+                                font: {
+                                    size: 16,
+                                    family: 'Inter'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchAndRenderTimeRangeComparisonChart() {
+            const chartCanvas = document.getElementById('timeRangeComparisonChart');
+            const existingChart = Chart.getChart(chartCanvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            const timeRangeStationSelector = document.getElementById('time-range-station-selector');
+
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const selectedSiteCodes = Array.from(timeRangeStationSelector.selectedOptions).map(option => option.value);
+
+            console.log("--- Iniciando fetchAndRenderTimeRangeComparisonChart ---");
+            console.log("Fecha de Inicio:", startDate);
+            console.log("Fecha de Fin:", endDate);
+            console.log("Estaciones seleccionadas:", selectedSiteCodes);
+
+            if (!startDate || !endDate || selectedSiteCodes.length === 0) {
+                displayError("Por favor, selecciona una fecha de inicio, una fecha de fin y al menos una estación.");
+                console.log("--- Finalizando fetchAndRenderTimeRangeComparisonChart: faltan datos de entrada ---");
+                return;
+            }
+
+            const chartDatasets = [];
+            let allLabels = new Set();
+
+            for (const sitecode of selectedSiteCodes) {
+                const metadata = allStationsMetadata[sitecode];
+                if (!metadata || metadata.cero_ign === null || metadata.cero_ign === undefined) {
+                    console.warn(`Estación ${sitecode} omitida en la comparativa por rango de fechas: Cero IGN no disponible.`);
+                    continue;
+                }
+
+                const url = `${API_URL_TIME_RANGE_COMPARISON}&timeStart=${startDate}T00:00:00Z&timeEnd=${endDate}T23:59:59Z&seriesId=${sitecode}&varId=28&format=csv`;
+                console.log(`Fetching time range data for station ${sitecode} from: ${url}`);
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                    }
+                    const csvText = await response.text();
+                    console.log(`CSV Data for ${metadata.nombre} (${sitecode}):\n`, csvText);
+                    const parsedData = parseCSV(csvText);
+                    console.log(`Parsed Data for ${metadata.nombre} (${sitecode}):`, parsedData);
+
+                    const normalizedData = parsedData.map(item => {
+                        const datePart = item[0].split(' ')[0];
+                        const date = new Date(datePart).toLocaleDateString('es-AR');
+                        const value = parseFloat(item[1]);
+                        allLabels.add(date);
+                        const normalizedValue = value + metadata.cero_ign;
+                        return { x: date, y: normalizedValue };
+                    });
+                    console.log(`Normalized Data for ${metadata.nombre} (${sitecode}):`, normalizedData);
+
+                    chartDatasets.push({
+                        label: metadata.nombre,
+                        data: normalizedData,
+                        isExtremum: false,
+                        hitRadius: 10,
+                    });
+
+                    const { maxima, minima } = findLocalExtrema(normalizedData);
+
+                    if (maxima.length > 0) {
+                        chartDatasets.push({
+                            label: `Máximo (${metadata.nombre})`,
+                            data: maxima,
+                            isExtremum: true,
+                            extremumType: 'max',
+                            stationName: metadata.nombre,
+                            pointRadius: 7,
+                            hitRadius: 10,
+                        });
+                    }
+                    if (minima.length > 0) {
+                        chartDatasets.push({
+                            label: `Mínimo (${metadata.nombre})`,
+                            data: minima,
+                            isExtremum: true,
+                            extremumType: 'min',
+                            stationName: metadata.nombre,
+                            pointRadius: 7,
+                            hitRadius: 10,
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(`Error al obtener datos para la estación ${metadata.nombre} (${sitecode}):`, error);
+                    displayError(`Error al cargar datos para ${metadata.nombre}. Detalles: ${error.message}`);
+                }
+            }
+
+            const sortedLabels = Array.from(allLabels).sort((a, b) => {
+                const dateA = a.split('/').reverse().join('-');
+                const dateB = b.split('/').reverse().join('-');
+                return new Date(dateA) - new Date(dateB);
+            });
+            console.log("Sorted Labels:", sortedLabels);
+            console.log("Chart Datasets antes de renderizar:", chartDatasets);
+
+
+            if (chartDatasets.length > 0) {
+                const ctx = chartCanvas.getContext('2d');
+                
+                timeRangeComparisonChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: sortedLabels,
+                        datasets: chartDatasets.map((dataset, index) => {
+                            if (dataset.isExtremum) {
+                                return {
+                                    label: dataset.label,
+                                    data: dataset.data,
+                                    type: 'scatter',
+                                    backgroundColor: dataset.extremumType === 'max' ? 'red' : 'green',
+                                    borderColor: dataset.extremumType === 'max' ? 'red' : 'green',
+                                    pointRadius: dataset.pointRadius, 
+                                    hitRadius: dataset.hitRadius,
+                                    pointStyle: dataset.extremumType === 'max' ? 'triangle' : 'rectRot',
+                                    showLine: false,
+                                    tooltipHidden: false,
+                                    xAxisID: 'x',
+                                    yAxisID: 'y'
+                                };
+                            } else {
+                                const mainLineDatasets = chartDatasets.filter(d => !d.isExtremum);
+                                const mainLineIndex = mainLineDatasets.indexOf(dataset);
+                                const colorHue = (mainLineIndex * 60) % 360; 
+                                const borderColor = `hsl(${colorHue}, 70%, 50%)`;
+                                const backgroundColor = `hsla(${colorHue}, 70%, 50%, 0.2)`;
+                                return {
+                                    label: dataset.label,
+                                    data: dataset.data,
+                                    borderColor: borderColor, 
+                                    backgroundColor: backgroundColor,
+                                    tension: 0.3,
+                                    fill: false, 
+                                    pointBackgroundColor: borderColor,
+                                    pointBorderColor: '#fff',
+                                    pointHoverBackgroundColor: '#fff',
+                                    pointHoverBorderColor: borderColor,
+                                    isExtremum: false,
+                                    hitRadius: 10,
+                                };
+                            }
+                        })
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    filter: function(item, chart) {
+                                        return !item.text.includes('Máximo (') && !item.text.includes('Mínimo (');
+                                    },
+                                    font: {
+                                        size: 14,
+                                        family: 'Inter'
+                                }
+                            }
+                        },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        if (context.dataset.isExtremum) {
+                                            const type = context.dataset.extremumType === 'max' ? 'Máximo' : 'Mínimo';
+                                            const stationName = context.dataset.stationName;
+                                            return `${type} ${stationName}: ${context.raw.y.toFixed(2)} m`;
+                                        } else {
+                                            return `${context.dataset.label}: ${context.raw.y.toFixed(2)} m (sobre Cero IGN)`;
+                                        }
+                                    }
+                                }
+                            },
+                            zoom: {
+                                pan: {
+                                    enabled: true,
+                                    mode: 'x',
+                                },
+                                zoom: {
+                                    wheel: {
+                                        enabled: true,
+                                    },
+                                    pinch: {
+                                        enabled: true
+                                    },
+                                    mode: 'x',
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category', // Usar 'category' para las etiquetas de fecha
+                                labels: sortedLabels,
+                                title: {
+                                    display: true,
+                                    text: 'Fecha',
+                                    font: {
+                                        size: 16,
+                                        family: 'Inter'
+                                    }
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter'
+                                    }
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Nivel (m) sobre Cero IGN', 
+                                    font: {
+                                        size: 16,
+                                        family: 'Inter'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log("--- Gráfico de rango de fechas renderizado exitosamente ---");
+            } else {
+                displayError("No se pudieron generar datos para el gráfico con las selecciones actuales o las APIs no devolvieron datos.");
+                console.log("--- Finalizando fetchAndRenderTimeRangeComparisonChart: No hay datasets para renderizar ---");
+            }
+        }
+
+        async function performCurveAnalysis() {
+            const analysisStationSelector = document.getElementById('analysis-station-selector');
+            const analysisStartDateInput = document.getElementById('analysis-start-date');
+            const analysisEndDateInput = document.getElementById('analysis-end-date');
+            const fitTypeSelector = document.getElementById('fit-type-selector');
+            const analysisResultsDiv = document.getElementById('analysis-results');
+            const analysisEquationSpan = document.getElementById('analysis-equation');
+            const analysisRSquaredSpan = document.getElementById('analysis-r-squared');
+            const chartCanvas = document.getElementById('analysisChart');
+            const existingChart = Chart.getChart(chartCanvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            const selectedSiteCode = analysisStationSelector.value;
+            const startDate = analysisStartDateInput.value;
+            const endDate = analysisEndDateInput.value;
+            const fitType = fitTypeSelector.value;
+
+            if (!selectedSiteCode || !startDate || !endDate) {
+                displayError("Por favor, selecciona una estación, fecha de inicio y fecha de fin para el análisis.");
+                analysisResultsDiv.classList.add('hidden');
+                return;
+            }
+
+            const metadata = allStationsMetadata[selectedSiteCode];
+            if (!metadata || metadata.cero_ign === null || metadata.cero_ign === undefined) {
+                displayError("Metadatos de estación incompletos o Cero IGN no disponible para el análisis.");
+                analysisResultsDiv.classList.add('hidden');
+                return;
+            }
+
+            analysisResultsDiv.classList.add('hidden'); // Ocultar resultados anteriores
+
+            const url = `${API_URL_TIME_RANGE_COMPARISON}&timeStart=${startDate}T00:00:00Z&timeEnd=${endDate}T23:59:59Z&seriesId=${selectedSiteCode}&varId=28&format=csv`;
+            console.log(`Fetching analysis data for station ${selectedSiteCode} from: ${url}`);
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                }
+                const csvText = await response.text();
+                const parsedData = parseCSV(csvText);
+
+                // Convertir datos a formato numérico para regresión (timestamp en X, valor en Y)
+                const dataForRegression = parsedData.map(item => ({
+                    x: new Date(item[0]).getTime(), // Convertir fecha a timestamp (ms)
+                    y: parseFloat(item[1]) + metadata.cero_ign // Valor normalizado
+                }));
+
+                if (dataForRegression.length < 2) {
+                    displayError("No hay suficientes puntos de datos para realizar el análisis de regresión en el rango de fechas seleccionado.");
+                    return;
+                }
+
+                let regressionResult;
+                let fittedData = [];
+                let equationString = "";
+
+                if (fitType === 'linear') {
+                    regressionResult = linearRegression(dataForRegression);
+                    const { slope, intercept, rSquared } = regressionResult;
+
+                    // Generar puntos para la línea de regresión
+                    const minX = Math.min(...dataForRegression.map(d => d.x));
+                    const maxX = Math.max(...dataForRegression.map(d => d.x));
+
+                    // Crear 100 puntos para la línea ajustada para que se vea suave
+                    for (let i = 0; i <= 100; i++) {
+                        const xVal = minX + (maxX - minX) * (i / 100);
+                        fittedData.push({
+                            x: new Date(xVal).toLocaleDateString('es-AR'),
+                            y: slope * xVal + intercept
+                        });
+                    }
+                    equationString = `y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}`;
+                    analysisRSquaredSpan.textContent = rSquared.toFixed(4);
+
+                } else {
+                    displayError("Tipo de ajuste no soportado. Selecciona 'Regresión Lineal'.");
+                    return;
+                }
+
+                // Preparar datos para el gráfico de análisis
+                const chartLabels = dataForRegression.map(d => new Date(d.x).toLocaleDateString('es-AR'));
+                const chartDataValues = dataForRegression.map(d => d.y);
+
+                const ctx = chartCanvas.getContext('2d');
+                analysisChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [
+                            {
+                                label: `Nivel Observado (${metadata.nombre})`,
+                                data: chartDataValues,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                tension: 0.3,
+                                fill: false,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: '#3b82f6',
+                                hitRadius: 10,
+                            },
+                            {
+                                label: `Línea de Regresión (${metadata.nombre})`,
+                                data: fittedData,
+                                borderColor: '#ef4444', // Rojo para la línea de regresión
+                                backgroundColor: 'transparent',
+                                tension: 0.1,
+                                fill: false,
+                                pointRadius: 0, // No mostrar puntos en la línea de regresión
+                                borderWidth: 2,
+                                hitRadius: 0, // No interactuar con la línea de regresión
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        family: 'Inter'
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let value = context.raw;
+                                        if (typeof context.raw === 'object' && context.raw !== null && 'y' in context.raw) {
+                                            value = context.raw.y;
+                                        }
+                                        return `${context.dataset.label}: ${value.toFixed(2)} m`;
+                                    }
+                                }
+                            },
+                            zoom: {
+                                pan: {
+                                    enabled: true,
+                                    mode: 'x',
+                                },
+                                zoom: {
+                                    wheel: {
+                                        enabled: true,
+                                    },
+                                    pinch: {
+                                        enabled: true
+                                    },
+                                    mode: 'x',
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category', // Usar 'category' para las etiquetas de fecha
+                                labels: chartLabels,
+                                title: {
+                                    display: true,
+                                    text: 'Fecha',
+                                    font: {
+                                        size: 16,
+                                        family: 'Inter'
+                                    }
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter'
+                                    }
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Nivel (m) sobre Cero IGN', 
+                                    font: {
+                                        size: 16,
+                                        family: 'Inter'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                analysisEquationSpan.textContent = equationString;
+                analysisResultsDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Error al realizar el análisis de curvas:", error);
+                displayError("No se pudo realizar el análisis. Detalles: " + error.message);
+                analysisResultsDiv.classList.add('hidden');
+            }
+        }
+
+        // Función para mostrar mensajes de error
+        function displayError(message) {
+            const errorMessageDiv = document.getElementById('error-message');
+            document.getElementById('error-text').textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        }
+
+        // Función para limpiar la información de la estación
+        function clearStationInfo() {
+            document.getElementById('station-name').textContent = "Selecciona una estación";
+            document.getElementById('station-date').textContent = "";
+            document.getElementById('station-value').textContent = "";
+            document.getElementById('station-prev-value').textContent = "";
+            document.getElementById('station-tendency').textContent = "";
+            document.getElementById('station-state').textContent = "";
+            document.getElementById('station-distrito').textContent = "";
+            document.getElementById('station-pais').textContent = "";
+            document.getElementById('station-tipo-nombre').textContent = "";
+            document.getElementById('station-propietario').textContent = "";
+            document.getElementById('station-rio').textContent = "";
+            document.getElementById('station-cero-ign').textContent = ""; 
+            document.getElementById('nivel-alerta').textContent = "";
+            document.getElementById('nivel-evacuacion').textContent = "";
+            document.getElementById('nivel-aguas-bajas').textContent = ""; 
+            const canvas = document.getElementById('timeSeriesChart');
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+        }
+
+        // Cargar todos los datos cuando la página esté completamente cargada
+        window.onload = function() {
+            // Selectores de la interfaz (ahora inicializados dentro de window.onload)
+            const stationSelector = document.getElementById('station-selector');
+            const comparisonStationSelector = document.getElementById('comparison-station-selector');
+            const timeRangeStationSelector = document.getElementById('time-range-station-selector');
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            const fetchTimeRangeDataBtn = document.getElementById('fetch-time-range-data-btn');
+            const resetZoomBtn = document.getElementById('reset-zoom-btn');
+
+            const tabBtnDetail = document.getElementById('tab-btn-detail');
+            const tabBtnComparison = document.getElementById('tab-btn-comparison');
+            const tabBtnTimeRangeComparison = document.getElementById('tab-btn-time-range-comparison');
+            const tabBtnAnalysis = document.getElementById('tab-btn-analysis');
+
+            const tabContentDetail = document.getElementById('tab-content-detail');
+            const tabContentComparison = document.getElementById('tab-content-comparison');
+            const tabContentTimeRangeComparison = document.getElementById('tab-content-time-range-comparison');
+            const tabContentAnalysis = document.getElementById('tab-content-analysis');
+
+            const analysisStationSelector = document.getElementById('analysis-station-selector');
+            const analysisStartDateInput = document.getElementById('analysis-start-date');
+            const analysisEndDateInput = document.getElementById('analysis-end-date');
+            const fitTypeSelector = document.getElementById('fit-type-selector');
+            const performAnalysisBtn = document.getElementById('perform-analysis-btn');
+            const resetAnalysisZoomBtn = document.getElementById('reset-analysis-zoom-btn');
+            const analysisResultsDiv = document.getElementById('analysis-results');
+            const analysisEquationSpan = document.getElementById('analysis-equation');
+            const analysisRSquaredSpan = document.getElementById('analysis-r-squared');
+
+            // Nuevos selectores y botón para el análisis de propagación
+            const upstreamStationSelector = document.getElementById('upstream-station-selector');
+            const downstreamStationSelector = document.getElementById('downstream-station-selector');
+            const propagationStartDateInput = document.getElementById('propagation-start-date');
+            const propagationEndDateInput = document.getElementById('propagation-end-date');
+            const calculatePropagationBtn = document.getElementById('calculate-propagation-btn');
+
+
+            // Event listeners para la navegación por pestañas
+            tabBtnDetail.addEventListener('click', () => showTab('tab-content-detail'));
+            tabBtnComparison.addEventListener('click', () => showTab('tab-content-comparison'));
+            tabBtnTimeRangeComparison.addEventListener('click', () => showTab('tab-content-time-range-comparison'));
+            tabBtnAnalysis.addEventListener('click', () => showTab('tab-content-analysis'));
+
+            // Event listener para el selector de estaciones en la pestaña de detalle
+            stationSelector.addEventListener('change', (event) => {
+                const selectedSiteCode = event.target.value; 
+                if (selectedSiteCode) {
+                    displayStationData(selectedSiteCode); 
+                } else {
+                    clearStationInfo();
+                }
+            });
+
+            // Event listener para el selector de estaciones en la pestaña de comparativa (últimos 7 días)
+            comparisonStationSelector.addEventListener('change', () => {
+                const selectedOptions = Array.from(comparisonStationSelector.selectedOptions);
+                const selectedSiteCodes = selectedOptions.map(option => option.value);
+
+                const chartDatasets = [];
+                let allLabels = new Set(); 
+
+                selectedSiteCodes.forEach(sitecode => {
+                    const metadata = allStationsMetadata[sitecode];
+                    const timeseriesProps = allTimeSeriesData[sitecode];
+
+                    if (metadata && timeseriesProps && metadata.cero_ign !== null && metadata.cero_ign !== undefined) {
+                        let parsedTimeseries = [];
+                        try {
+                            if (timeseriesProps.timeseries && typeof timeseriesProps.timeseries === 'string') {
+                                parsedTimeseries = JSON.parse(timeseriesProps.timeseries);
+                            } else if (Array.isArray(timeseriesProps.timeseries)) {
+                                parsedTimeseries = timeseriesProps.timeseries;
+                            }
+                        } catch (e) {
+                            console.error(`Error al parsear timeseries para estación ${sitecode}:`, e);
+                            return; 
+                        }
+
+                        const normalizedData = parsedTimeseries.map(item => {
+                            const date = new Date(item[0]).toLocaleDateString('es-AR');
+                            const value = parseFloat(item[1]);
+                            allLabels.add(date); 
+                            const normalizedValue = value + metadata.cero_ign;
+                            return { x: date, y: normalizedValue }; 
+                        });
+
+                        chartDatasets.push({
+                            label: metadata.nombre,
+                            data: normalizedData,
+                            hitRadius: 10,
+                        });
+                    }
+                });
+
+                const sortedLabels = Array.from(allLabels).sort((a, b) => {
+                    const dateA = a.split('/').reverse().join('-');
+                    const dateB = b.split('/').reverse().join('-');
+                    return new Date(dateA) - new Date(dateB);
+                });
+
+                if (chartDatasets.length > 0) {
+                    renderComparisonChart(chartDatasets, sortedLabels);
+                } else {
+                    const canvas = document.getElementById('comparisonChart');
+                    const existingChart = Chart.getChart(canvas);
+                    if (existingChart) {
+                        existingChart.destroy();
+                    }
+                    if (selectedSiteCodes.length > 0) { 
+                        displayError("No hay datos válidos con Cero IGN para las estaciones seleccionadas.");
+                    } else {
+                        displayError("Selecciona al menos una estación para comparar.");
+                    }
+                }
+            });
+
+            // Event listener para el botón "Generar Gráfico" en la pestaña de rango de fechas
+            fetchTimeRangeDataBtn.addEventListener('click', fetchAndRenderTimeRangeComparisonChart);
+
+            // Event listener para el botón "Restablecer Zoom"
+            resetZoomBtn.addEventListener('click', () => {
+                const existingChart = Chart.getChart(document.getElementById('timeRangeComparisonChart'));
+                if (existingChart) {
+                    existingChart.resetZoom();
+                }
+            });
+
+            // Event listener para el botón "Realizar Análisis" en la nueva pestaña de análisis
+            performAnalysisBtn.addEventListener('click', performCurveAnalysis);
+
+            // Event listener para el botón "Restablecer Zoom de Análisis"
+            resetAnalysisZoomBtn.addEventListener('click', () => {
+                const existingChart = Chart.getChart(document.getElementById('analysisChart'));
+                if (existingChart) {
+                    existingChart.resetZoom();
+                }
+            });
+
+            // Event listener para el botón "Calcular Tiempo de Propagación"
+            calculatePropagationBtn.addEventListener('click', calculatePropagationTime);
+
+            // Cargar todos los datos
+            loadAllData();
+        };
+    </script>
+</body>
+</html>
