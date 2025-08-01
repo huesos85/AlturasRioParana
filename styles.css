@@ -1,0 +1,55 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f4f8; /* Un color de fondo suave */
+}
+.container {
+    max-width: 900px;
+}
+.card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.tendencia-crece {
+    color: #22c55e; /* Verde para 'crece' */
+}
+.tendencia-baja {
+    color: #ef4444; /* Rojo para 'baja' */
+}
+.tendencia-estable {
+    color: #f59e0b; /* Naranja para 'estable' */
+}
+.estado-aguas-bajas {
+    color: #f59e0b; /* Naranja para 'aguas bajas' */
+}
+.estado-normal {
+    color: #22c55e; /* Verde para 'normal' */
+}
+.estado-alerta {
+    color: #ef4444; /* Rojo para 'alerta' */
+}
+/* Estilos para las pestañas */
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-weight: 600;
+    color: #4b5563; /* gray-700 */
+    background-color: #e5e7eb; /* gray-200 */
+}
+.tab-button.active {
+    background-color: #ffffff;
+    color: #1f2937; /* gray-900 */
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+}
+.tab-content {
+    display: none;
+    padding: 1.5rem;
+    border-radius: 0 0.5rem 0.5rem 0.5rem;
+    background-color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.tab-content.active {
+    display: block;
+}
